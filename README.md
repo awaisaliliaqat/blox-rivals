@@ -67,13 +67,46 @@ drag the right side to look, plus FIRE / JUMP / 🔪 / 🧨 / RELOAD / SWAP butt
   `RIVALS.melee()`, `RIVALS.throwGrenade()`, `RIVALS.setMap(i)`, plus getters for
   `enemies`, `projectiles`, `movers`, `jumpPads`, `player`, `kills`.
 
-## Not included (needs a backend)
+## Multiplayer (lobby + chat + fight real people)
 
-- **Online multiplayer.** Real-time PvP needs a signaling/relay server (WebSocket or WebRTC).
-  Everything else here is fully client-side. Ask if you want a WebRTC peer-to-peer version next.
+Click **🌐 MULTIPLAYER** on the title screen to open the **Lobby**: enter a **Server URL**,
+your **name**, and a **Room code**, then **CONNECT**. Everyone who connects to the same
+server + room is together — chat in the lobby, then **⚔ ENTER ARENA** to fight. In the
+arena, press **T** or **Enter** to chat, and the scoreboard (top-right) tracks kills.
+
+### What the server must do
+The client only needs a **WebSocket room-relay**: when it receives a JSON text message,
+rebroadcast it to every *other* connected client whose `room` matches. No game logic needed.
+A ready-to-run reference is in [`server-example.js`](server-example.js) (~30 lines, Node + `ws`):
+
+```bash
+npm init -y && npm install ws
+node server-example.js          # ws://localhost:8080
+```
+Host it with TLS (Render/Railway/Fly/VPS) and use a `wss://…` URL so it works over the internet
+and from the HTTPS GitHub Pages build.
+
+### Message protocol (client ⇄ relay ⇄ others)
+Every message is JSON; the client adds `id` (unique per player) and `room` automatically.
+
+| `t` | payload | meaning |
+|-----|---------|---------|
+| `join` | `name, color, reply?` | player joined (peers reply once so newcomers learn them) |
+| `leave` | — | player left |
+| `state` | `x,y,z,yaw,hp,name,color,wpn` | position/aim broadcast ~15×/sec |
+| `chat` | `name, text` | lobby/arena chat line |
+| `shot` | `from[3], to[3], color` | tracer to render on others' screens |
+| `hit` | `target, dmg, head` | you hit `target` for `dmg` (victim applies it) |
+| `death` | `by` | sender died, killed by player `by` (scoreboard +1) |
+
+Damage is **victim-authoritative** (you tell others you hit them; they apply it and respawn),
+which keeps the relay dumb and avoids a trusted host.
+
+> Tip: to pre-fill the lobby's Server URL, set `DEFAULT_WS_URL` near the top of the
+> multiplayer section in `index.html`.
 
 ## Ideas to extend
 
 - Capture-the-flag / team modes, killstreaks, weapon pickups & powerups
 - Destructible cover, more maps, a map editor
-- Online multiplayer (WebRTC/WebSocket rooms)
+- Server-authoritative netcode + interpolation buffering for smoother high-ping play
