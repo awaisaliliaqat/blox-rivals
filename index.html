@@ -686,7 +686,7 @@ function makeEnemy(){
   const top=supportTopAt(pick[0],pick[1],0.5,1e9);
   g.position.set(pick[0], top<=-1e8?0:top, pick[1]);
   mapGroup.add(g); shootTargets.push(g);
-  const e={group:g,hp:160,maxhp:160,speed:rnd(2.4,3.4),nextShot:clock.elapsedTime+rnd(1.4,2.6),
+  const e={group:g,hp:160,maxhp:160,speed:rnd(2.8,3.9),nextShot:clock.elapsedTime+rnd(1.1,2.2),
     color:col,legs:[ll,rl],walkT:Math.random()*6,vel:new THREE.Vector3(),airT:0,grounded:true,
     strafe:Math.random()<.5?1:-1,strafeT:0};
   enemies.push(e); return e;
@@ -754,9 +754,9 @@ function updateEnemies(dt){
     // shoot
     const eEye=p.clone().add(eyeOff);
     if(e.grounded && clock.elapsedTime>e.nextShot && eEye.distanceTo(pEye)<62 && hasLOS(eEye,pEye)){
-      e.nextShot=clock.elapsedTime+rnd(1.6,2.8); tracer(eEye,pEye,0xff2e63);
-      const dist=eEye.distanceTo(pEye), chance=Math.max(.14,.62-dist*.016);
-      if(Math.random()<chance && player.alive) hurtPlayer(rnd(4,8));
+      e.nextShot=clock.elapsedTime+rnd(1.3,2.3); tracer(eEye,pEye,0xff2e63);
+      const dist=eEye.distanceTo(pEye), chance=Math.max(.2,.72-dist*.015);
+      if(Math.random()<chance && player.alive) hurtPlayer(rnd(6,11));
     }
   }
 }
@@ -994,9 +994,7 @@ function updatePlayer(dt){
     if(gameMode==='mp'){ NET.send({t:'death',by:null}); pushMpChat(null,'You fell into the void'); mpRespawn(); }
     else { player.alive=false; pushFeed('💀 YOU FELL INTO THE VOID'); gameOver(); return; } }
 
-  // regen
-  if(player.hp<player.maxhp){ const rate=(clock.elapsedTime-player.lastHit>1.5)?28:6; // fast out of combat, trickle while hit
-    player.hp=Math.min(player.maxhp,player.hp+rate*dt); updateHP(); }
+  // no passive health regen — heal only by picking up medkits
 
   // grenade regen
   if(grenades<grenadeMax && clock.elapsedTime-lastGrenade>7){ grenades++; lastGrenade=clock.elapsedTime; updateNadeUI(); }
@@ -1100,7 +1098,7 @@ function frame(dt){
     if(gameMode==='mp'){ updateRemotes(dt); netTick(dt);
       document.getElementById('enemyleft').textContent=(1+Object.keys(remotes).length)+' PLAYERS'; }
     else { updateEnemies(dt);
-      if(toSpawn>0){ spawnTimer-=dt; if(spawnTimer<=0&&enemies.length<4){ makeEnemy(); toSpawn--; spawnTimer=rnd(1.0,2.0); } }
+      if(toSpawn>0){ spawnTimer-=dt; if(spawnTimer<=0&&enemies.length<5){ makeEnemy(); toSpawn--; spawnTimer=rnd(0.9,1.8); } }
       if(toSpawn===0&&enemies.length===0) startWave(wave+1);
       document.getElementById('enemyleft').textContent=(enemies.length+toSpawn)+' RIVALS'; }
     updateProjectiles(dt); updateMedkits(dt); updateEffects(dt);
