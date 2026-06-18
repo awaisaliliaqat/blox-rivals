@@ -591,10 +591,11 @@ const SAVE_KEY='bloxRivalsProfile_v1';
 let profile=loadProfile();
 let xpGainedThisGame=0, keysEarnedThisGame=0;
 function loadProfile(){
+  const ALL = weapons.map(w=>w.id);     // every gun unlocked
   try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY));
     if(s&&Array.isArray(s.unlocked)){ s.level=s.level||1; s.xp=s.xp||0; s.keys=s.keys||0;
-      if(!s.unlocked.includes('smg')) s.unlocked.push('smg'); return s; } }catch(e){}
-  return { level:1, xp:0, keys:0, unlocked:['smg'] };
+      s.unlocked = ALL.slice(); return s; } }catch(e){}
+  return { level:1, xp:0, keys:0, unlocked: ALL.slice() };
 }
 function saveProfile(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); }catch(e){} }
 function xpNeeded(lvl){ return 80+(lvl-1)*55; }
