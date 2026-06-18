@@ -793,6 +793,7 @@ const armors=[
  {id:'behemoth', name:'BEHEMOTH',  cost:160, bonus:950,  blurb:'+950 max health',  color:0xff7eb6},
  {id:'warlord',  name:'WARLORD',   cost:200, bonus:1200, blurb:'+1200 max health', color:0xffd23f},
  {id:'immortal', name:'IMMORTAL',  cost:260, bonus:1600, blurb:'+1600 max health — godshell', color:0xff2e63},
+ {id:'ownerarmor',name:'OWNER SHELL',cost:0,ownerOnly:true,bonus:5000,blurb:'👑 OWNER-ONLY — +5000 health (works everywhere)',color:0xffd23f},
 ];
 let curWeapon=0; const ammo=weapons.map(w=>w.mag);
 let reloading=false, reloadEnd=0, lastShot=0, recoilV=0;
@@ -828,8 +829,13 @@ function bestArmorIndex(){   // explicitly equipped armor if owned, else the bes
   let bi=-1,bb=-1; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>bb){bb=a.bonus;bi=i;} }); return bi; }
 function bestArmorBonus(){ const i=bestArmorIndex(); return i>=0?armors[i].bonus:0; }
 function equipArmor(i){ if(!isArmorOwned(i))return false; profile.equippedArmor=armors[i].id; saveProfile(); return true; }
-function playerMaxHp(){ return (gameMode==='mp') ? (500 + bestArmorBonus()) : 50; }  // solo flat 50 (no armor); multiplayer 500 + armor
+function playerMaxHp(){
+  const ai=bestArmorIndex(), a=ai>=0?armors[ai]:null;
+  if(a&&a.ownerOnly) return ((gameMode==='mp')?500:50)+a.bonus;   // owner armor works everywhere (solo too)
+  return (gameMode==='mp') ? (500 + bestArmorBonus()) : 50;        // normal armor: multiplayer only; solo flat 50
+}
 function unlockArmor(i){ const a=armors[i];
+  if(a.ownerOnly) return false;   // can't be bought — owner-only
   if(isArmorOwned(i)||profile.keys<a.cost) return false;
   profile.keys-=a.cost; (profile.armors=profile.armors||[]).push(a.id); saveProfile(); return true; }
 function addXP(n){ profile.xp+=n; xpGainedThisGame+=n;
@@ -1394,7 +1400,8 @@ function renderArmory(){ const el=$('#armory'); if(!el)return; el.innerHTML='';
     el.appendChild(card); }); }
 function renderArmorShop(){ const el=$('#armorShop'); if(!el)return; el.innerHTML='';
   const best=bestArmorIndex();
-  armors.forEach((a,i)=>{ const owned=isArmorOwned(i); const card=document.createElement('div');
+  armors.forEach((a,i)=>{ if(a.ownerOnly) return;   // owner-only armor never shows in the shop
+    const owned=isArmorOwned(i); const card=document.createElement('div');
     card.className='wcard'+(owned?' owned':'');
     const hex='#'+a.color.toString(16).padStart(6,'0');
     const btn = (i===best) ? '<button class="ubtn owned" disabled>✓ EQUIPPED</button>'
