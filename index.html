@@ -157,6 +157,16 @@
   .ubtn.buy{background:linear-gradient(90deg,var(--accent),#9bfff0);color:#04121a;}
   .ubtn.owned{background:rgba(57,255,20,.2);color:#9dff8a;cursor:default;}
   .ubtn.no{background:rgba(255,255,255,.08);color:#8a93a0;cursor:not-allowed;}
+  /* quests */
+  #questList{display:flex;flex-direction:column;gap:8px;margin-top:12px;width:340px;max-width:92vw;}
+  .qcard{border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.04);text-align:left;}
+  .qcard.qready{border-color:var(--warn);box-shadow:0 0 14px rgba(255,212,0,.3);}
+  .qcard.qclaimed{opacity:.5;}
+  .q-name{font-size:13px;font-weight:bold;letter-spacing:.5px;}
+  .q-rw{color:var(--warn);font-size:12px;float:right;}
+  .q-desc{font-size:11px;opacity:.65;margin:2px 0 6px;clear:both;}
+  .qbar{height:7px;background:rgba(255,255,255,.12);border-radius:5px;overflow:hidden;margin-bottom:8px;}
+  .qfill{height:100%;background:linear-gradient(90deg,var(--warn),#fff0a0);}
   .wslot.locked{opacity:.38;}
   .wslot .lk{font-size:10px;color:var(--warn);}
   #levelhud{font-size:13px;color:var(--warn);letter-spacing:1px;margin-top:5px;}
@@ -335,6 +345,9 @@
   <details class="help" id="armorWrap" open><summary>🛡 ARMOR — more max health in MULTIPLAYER (no effect in solo)</summary>
     <button id="ownerArmorBtn" class="btn" style="display:none;margin:10px auto 2px;padding:11px 26px;font-size:14px;background:linear-gradient(90deg,#ffd23f,#fff3a0);color:#3a2a00;box-shadow:0 6px 22px rgba(255,210,63,.4)">👑 EQUIP OWNER SHELL (+5000)</button>
     <div id="armorShop"></div>
+  </details>
+  <details class="help" id="questWrap" open><summary>🎯 QUESTS — complete challenges for keys</summary>
+    <div id="questList"></div>
   </details>
   <div id="maps"></div>
   <div class="settings">
@@ -812,8 +825,9 @@ let xpGainedThisGame=0, keysEarnedThisGame=0;
 function loadProfile(){
   try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY));
     if(s&&Array.isArray(s.unlocked)){ s.level=s.level||1; s.xp=s.xp||0; s.keys=s.keys||0; s.armors=s.armors||[];
+      s.stats=s.stats||{}; s.claimedQuests=s.claimedQuests||[];
       if(!s.unlocked.includes('smg')) s.unlocked.push('smg'); return s; } }catch(e){}
-  return { level:1, xp:0, keys:0, unlocked:['smg'], armors:[] };
+  return { level:1, xp:0, keys:0, unlocked:['smg'], armors:[], stats:{}, claimedQuests:[] };
 }
 function saveProfile(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); }catch(e){} }
 function xpNeeded(lvl){ return 80+(lvl-1)*55; }
@@ -839,6 +853,34 @@ function unlockArmor(i){ const a=armors[i];
   if(a.ownerOnly) return false;   // can't be bought — owner-only
   if(isArmorOwned(i)||profile.keys<a.cost) return false;
   profile.keys-=a.cost; (profile.armors=profile.armors||[]).push(a.id); saveProfile(); return true; }
+// ---------- Quests (complete for keys) ----------
+const QUESTS=[
+ {id:'q_kills25', name:'First Blood',  desc:'Get 25 eliminations',          stat:'kills',        target:25,  reward:5},
+ {id:'q_head15',  name:'Sharpshooter', desc:'Land 15 headshots',            stat:'headshots',    target:15,  reward:8},
+ {id:'q_ring10',  name:'Ring Master',  desc:'Ring out 10 rivals (void maps)',stat:'ringouts',    target:10,  reward:10},
+ {id:'q_wave8',   name:'Survivor',     desc:'Reach wave 8 in one run',      stat:'bestWave',     target:8,   reward:12},
+ {id:'q_waves25', name:'Wave Crusher', desc:'Clear 25 waves total',         stat:'wavesCleared', target:25,  reward:15},
+ {id:'q_kills100',name:'Veteran',      desc:'Get 100 eliminations',         stat:'kills',        target:100, reward:25},
+ {id:'q_mpwin',   name:'Champion',     desc:'Win a multiplayer match',      stat:'mpWins',       target:1,   reward:15},
+];
+function questNotify(stat,before,after){ QUESTS.forEach(q=>{ if(q.stat===stat && before<q.target && after>=q.target && !(profile.claimedQuests||[]).includes(q.id))
+  pushFeed('🎯 QUEST COMPLETE: '+q.name+' — claim +'+q.reward+'🔑 in the menu'); }); }
+function questTrack(stat,n=1){ profile.stats=profile.stats||{}; const b=profile.stats[stat]||0; profile.stats[stat]=b+n; saveProfile(); questNotify(stat,b,b+n); }
+function questSetMax(stat,val){ profile.stats=profile.stats||{}; const b=profile.stats[stat]||0; if(val>b){ profile.stats[stat]=val; saveProfile(); questNotify(stat,b,val); } }
+function claimQuest(id){ const q=QUESTS.find(x=>x.id===id); if(!q)return; profile.claimedQuests=profile.claimedQuests||[];
+  if(profile.claimedQuests.includes(id) || (profile.stats&&profile.stats[q.stat]||0)<q.target) return;
+  profile.claimedQuests.push(id); profile.keys+=q.reward; saveProfile(); sfx('level'); updateProgUI(); }
+function renderQuests(){ const el=$('#questList'); if(!el)return; el.innerHTML='';
+  const stats=profile.stats||{}, claimed=profile.claimedQuests||[];
+  QUESTS.forEach(q=>{ const cur=stats[q.stat]||0, prog=Math.min(cur,q.target), done=cur>=q.target, isC=claimed.includes(q.id);
+    const card=document.createElement('div'); card.className='qcard'+(isC?' qclaimed':done?' qready':'');
+    const btn = isC ? '<button class="ubtn owned" disabled>✓ CLAIMED</button>'
+      : done ? '<button class="ubtn buy">CLAIM +'+q.reward+' 🔑</button>'
+      : '<button class="ubtn no" disabled>'+prog+' / '+q.target+'</button>';
+    card.innerHTML='<div class="q-name">'+q.name+' <span class="q-rw">+'+q.reward+'🔑</span></div><div class="q-desc">'+q.desc+'</div>'
+      +'<div class="qbar"><div class="qfill" style="width:'+(prog/q.target*100)+'%"></div></div>'+btn;
+    if(done&&!isC){ card.querySelector('.ubtn').onclick=()=>claimQuest(q.id); }
+    el.appendChild(card); }); }
 function addXP(n){ profile.xp+=n; xpGainedThisGame+=n;
   while(profile.xp>=xpNeeded(profile.level)){ profile.xp-=xpNeeded(profile.level); profile.level++;
     const k=1+(profile.level%5===0?2:0); profile.keys+=k; keysEarnedThisGame+=k;
@@ -997,6 +1039,7 @@ function killEnemy(e,head,ringout){
   pushFeed((ringout?'💀 RING-OUT — ':head?'★ HEADSHOT — ':'✖ ELIMINATED — ')+'+'+pts);
   sfx(ringout?'ringout':'kill');
   addXP(ringout?40:head?28:20);
+  questTrack('kills'); if(head) questTrack('headshots'); if(ringout) questTrack('ringouts');
 }
 function knockEnemy(e,dir,force,up){
   e.vel.x+=dir.x*force; e.vel.z+=dir.z*force; e.vel.y=Math.max(e.vel.y,up||0);
@@ -1259,6 +1302,7 @@ function damageVignette(){ $('#vignette').style.boxShadow='inset 0 0 160px 50px 
 // ---------- Waves ----------
 let wave=0,kills=0,score=0,toSpawn=0,spawnTimer=0;
 function startWave(n){ wave=n; toSpawn=2+n+(mapDiff-1)*2; spawnTimer=0;
+  if(gameMode!=='mp') questSetMax('bestWave',n);
   document.getElementById('wave').textContent='WAVE '+n; pushFeed('⚔  WAVE '+n+' INCOMING'); }
 
 function hurtPlayer(d){ player.hp-=d; player.lastHit=clock.elapsedTime; updateHP(); damageVignette(); sfx('hurt');
@@ -1419,7 +1463,7 @@ function updateProgUI(){ if($('#pLevel')){ $('#pLevel').textContent=profile.leve
     if($('#pMaxHp')) $('#pMaxHp').textContent=(500+bestArmorBonus());   // armor only applies in multiplayer
     $('#pXPfill').style.width=Math.min(100,profile.xp/xpNeeded(profile.level)*100)+'%';
     $('#pXPtext').textContent=profile.xp+' / '+xpNeeded(profile.level)+' XP'; }
-  renderArmory(); renderArmorShop(); updateLevelHUD();
+  renderArmory(); renderArmorShop(); renderQuests(); updateLevelHUD();
   const ob=$('#ownerArmorBtn');
   if(ob){ if(profile.owner){ ob.style.display='block';
       const oi=armors.findIndex(a=>a.id==='ownerarmor'); const eq=bestArmorIndex()===oi;
@@ -1493,7 +1537,7 @@ function frame(dt){
     else { updateEnemies(dt);
       if(toSpawn>0){ spawnTimer-=dt; if(spawnTimer<=0&&enemies.length<(3+mapDiff)){ makeEnemy(); toSpawn--; spawnTimer=rnd(1.0,1.9)/(1+(mapDiff-1)*0.25); } }
       if(toSpawn===0&&enemies.length===0){ player.hp=player.maxhp; updateHP();
-        const kr=mapDiff; profile.keys+=kr; keysEarnedThisGame+=kr; saveProfile(); updateLevelHUD();   // harder maps = more keys per wave
+        const kr=mapDiff; profile.keys+=kr; keysEarnedThisGame+=kr; saveProfile(); updateLevelHUD(); questTrack('wavesCleared');   // harder maps = more keys per wave
         pushFeed('❤  WAVE CLEARED · +'+kr+' 🔑 · HEALTH RESTORED'); startWave(wave+1); }
       document.getElementById('enemyleft').textContent=(enemies.length+toSpawn)+' RIVALS'; }
     updateProjectiles(dt); updateMedkits(dt); updateEffects(dt);
@@ -1582,7 +1626,7 @@ function mpRespawn(){ const sp=currentMap.spawns[Math.floor(Math.random()*curren
 function onMpDeath(id,by){ if(by){ mpScores[by]=(mpScores[by]||0)+1; }
   const victim=mpNames[id]||'A player', killer=(by===NET.id)?NET.name:(mpNames[by]||'someone');
   pushMpChat(null, victim+' was eliminated'+(by?' by '+killer:''));
-  if(by===NET.id){ kills++; score+=100; document.getElementById('kills').textContent=kills; addXP(25); }
+  if(by===NET.id){ kills++; score+=100; document.getElementById('kills').textContent=kills; addXP(25); questTrack('kills'); }
   renderScoreboard(); }
 function renderScoreboard(){ const el=$('#sbrows'); if(!el)return;
   const rows=[{id:NET.id,name:NET.name+' (you)'}].concat(Object.keys(remotes).map(id=>({id,name:mpNames[id]||'Player'})));
@@ -1625,7 +1669,7 @@ function onForfeit(id){ const name=mpNames[id]||'A player'; removeRemote(id);
 function onCheat(id){ const n=mpNames[id]||'A player'; removeRemote(id);
   pushMpChat(null,'🚫 '+n+' was banned for cheating'); addChat(null,n+' was banned for cheating',true); }
 // YOU won the match -> tell everyone, show banner with your username
-function declareWin(){ NET.send({t:'win', name:NET.name}); showWin(NET.name, true); }
+function declareWin(){ NET.send({t:'win', name:NET.name}); questTrack('mpWins'); showWin(NET.name, true); }
 function onWin(id,name){ const nm=name||mpNames[id]||'A player';
   if(gameMode==='mp' && gameState==='playing') showWin(nm,false);
   pushMpChat(null,'🏆 '+nm+' WON the match'); addChat(null,nm+' won the match',true); }
@@ -1659,11 +1703,12 @@ if(DEBUG) window.RIVALS={ get state(){return gameState;}, get enemies(){return e
   melee, throwGrenade, explode, get grenades(){return grenades;}, get map(){return currentMap;},
   get profile(){return profile;}, addXP, unlockWeapon, isUnlocked, get curWeapon(){return curWeapon;},
   armors, unlockArmor, isArmorOwned, playerMaxHp, bestArmorBonus, equipArmor, bestArmorIndex,
+  get quests(){return QUESTS;}, questTrack, claimQuest, refreshUI(){ updateProgUI(); },
   get medkits(){return medkits;}, get net(){return NET;}, get remotes(){return remotes;},
   setView, get thirdPerson(){return thirdPerson;}, get playerBody(){return playerBody;}, get camera(){return camera;},
   get gameMode(){return gameMode;}, get scores(){return mpScores;}, startArena, sendChat, mpRespawn, doLeave,
   get renderer(){return renderer;}, get composer(){return composer;},
-  resetProfile(){ profile={level:1,xp:0,keys:0,unlocked:['smg'],armors:[]}; saveProfile(); updateProgUI(); },
+  resetProfile(){ profile={level:1,xp:0,keys:0,unlocked:['smg'],armors:[],stats:{},claimedQuests:[]}; saveProfile(); updateProgUI(); },
   step(dt){ let d; if(dt!=null){d=Math.min(0.05,dt);clock.elapsedTime+=d;} else d=Math.min(0.05,clock.getDelta());
     frame(d); renderFrame();
     return {state:gameState,enemies:enemies.length,toSpawn,kills,hp:Math.round(player.hp),py:+player.pos.y.toFixed(2),proj:projectiles.length}; } };
