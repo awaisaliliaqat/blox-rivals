@@ -322,14 +322,14 @@
   <div class="subtitle">Arena FPS · Ring-Out</div>
   <div id="userBar"><span id="userTag"></span> · <a id="logoutBtn">log out</a></div>
   <div id="prog">
-    <div class="progrow"><span>LEVEL <b id="pLevel">1</b></span><span>❤ <b id="pMaxHp">100</b> HP</span><span><b id="pKeys">0</b> 🔑 KEYS</span></div>
+    <div class="progrow"><span>LEVEL <b id="pLevel">1</b></span><span>❤ <b id="pMaxHp">500</b> MP&nbsp;HP</span><span><b id="pKeys">0</b> 🔑 KEYS</span></div>
     <div id="pXPbar"><div id="pXPfill"></div></div>
     <div id="pXPtext">0 / 80 XP</div>
   </div>
   <details class="help" id="armoryWrap" open><summary>🔫 ARMORY — spend keys to permanently unlock weapons</summary>
     <div id="armory"></div>
   </details>
-  <details class="help" id="armorWrap" open><summary>🛡 ARMOR — spend keys for more max health</summary>
+  <details class="help" id="armorWrap" open><summary>🛡 ARMOR — more max health in MULTIPLAYER (no effect in solo)</summary>
     <div id="armorShop"></div>
   </details>
   <div id="maps"></div>
@@ -761,7 +761,12 @@ const armors=[
  {id:'jugg',    name:'JUGGERNAUT',   cost:22, bonus:130, blurb:'+130 max health', color:0xff2e63},
  {id:'titan',   name:'TITAN ARMOR',  cost:34, bonus:190, blurb:'+190 max health', color:0xff9f1c},
  {id:'fortress',name:'FORTRESS',     cost:48, bonus:270, blurb:'+270 max health', color:0xb06dff},
- {id:'overlord',name:'OVERLORD',     cost:70, bonus:400, blurb:'+400 max health — 500 HP total', color:0x00e5ff},
+ {id:'overlord',name:'OVERLORD',     cost:70, bonus:400, blurb:'+400 max health', color:0x00e5ff},
+ {id:'colossus', name:'COLOSSUS',  cost:90,  bonus:550,  blurb:'+550 max health',  color:0x39ff14},
+ {id:'leviathan',name:'LEVIATHAN', cost:120, bonus:720,  blurb:'+720 max health',  color:0x2ec4b6},
+ {id:'behemoth', name:'BEHEMOTH',  cost:160, bonus:950,  blurb:'+950 max health',  color:0xff7eb6},
+ {id:'warlord',  name:'WARLORD',   cost:200, bonus:1200, blurb:'+1200 max health', color:0xffd23f},
+ {id:'immortal', name:'IMMORTAL',  cost:260, bonus:1600, blurb:'+1600 max health — godshell', color:0xff2e63},
 ];
 let curWeapon=0; const ammo=weapons.map(w=>w.mag);
 let reloading=false, reloadEnd=0, lastShot=0, recoilV=0;
@@ -797,7 +802,7 @@ function bestArmorIndex(){   // explicitly equipped armor if owned, else the bes
   let bi=-1,bb=-1; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>bb){bb=a.bonus;bi=i;} }); return bi; }
 function bestArmorBonus(){ const i=bestArmorIndex(); return i>=0?armors[i].bonus:0; }
 function equipArmor(i){ if(!isArmorOwned(i))return false; profile.equippedArmor=armors[i].id; saveProfile(); return true; }
-function playerMaxHp(){ return ((gameMode==='mp') ? 500 : 50) + bestArmorBonus(); }  // base 50 solo / 500 mp, plus armor (armor works in both)
+function playerMaxHp(){ return (gameMode==='mp') ? (500 + bestArmorBonus()) : 50; }  // solo flat 50 (no armor); multiplayer 500 + armor
 function unlockArmor(i){ const a=armors[i];
   if(isArmorOwned(i)||profile.keys<a.cost) return false;
   profile.keys-=a.cost; (profile.armors=profile.armors||[]).push(a.id); saveProfile(); return true; }
@@ -1372,7 +1377,7 @@ function renderArmorShop(){ const el=$('#armorShop'); if(!el)return; el.innerHTM
     else if(!owned && profile.keys>=a.cost){ ub.onclick=()=>{ if(unlockArmor(i)){ sfx('level'); updateProgUI(); } }; }
     el.appendChild(card); }); }
 function updateProgUI(){ if($('#pLevel')){ $('#pLevel').textContent=profile.level; $('#pKeys').textContent=profile.keys;
-    if($('#pMaxHp')) $('#pMaxHp').textContent=playerMaxHp();
+    if($('#pMaxHp')) $('#pMaxHp').textContent=(500+bestArmorBonus());   // armor only applies in multiplayer
     $('#pXPfill').style.width=Math.min(100,profile.xp/xpNeeded(profile.level)*100)+'%';
     $('#pXPtext').textContent=profile.xp+' / '+xpNeeded(profile.level)+' XP'; }
   renderArmory(); renderArmorShop(); updateLevelHUD(); }
