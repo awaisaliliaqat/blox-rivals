@@ -74,10 +74,12 @@
   .wslot{cursor:pointer;}
   /* rotate-to-landscape hint (touch portrait only) */
   #rotateHint{position:fixed;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;
-    gap:16px;background:rgba(5,8,14,.96);text-align:center;font-size:18px;padding:32px;line-height:1.4;}
-  #rotateHint>div:first-child{font-size:66px;animation:rspin 2.2s linear infinite;}
+    gap:14px;background:rgba(5,8,14,.96);text-align:center;font-size:18px;padding:32px;line-height:1.4;cursor:pointer;}
+  #rotateHint.show{display:flex;}
+  #rotateHint>div:first-child{font-size:64px;animation:rspin 2.2s linear infinite;}
+  #rotateHint .dismiss{margin-top:8px;font-size:14px;font-weight:bold;letter-spacing:1px;color:var(--accent);
+    border:1px solid var(--accent);padding:9px 22px;border-radius:22px;}
   @keyframes rspin{to{transform:rotate(360deg);}}
-  @media (max-width:900px) and (orientation:portrait){ #rotateHint.touch{display:flex;} }
 
   /* ---------- Overlays ---------- */
   .overlay{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -232,7 +234,7 @@
   <div class="mbtn" id="bChat" style="display:none">💬</div>
 </div>
 
-<div id="rotateHint"><div>🔄</div><div>Rotate your device to <b>landscape</b> for the best experience</div></div>
+<div id="rotateHint"><div>🔄</div><div>Rotate your device to <b>landscape</b> for the best experience</div><div class="dismiss">Tap to play anyway ▶</div></div>
 
 <!-- start -->
 <div id="startScreen" class="overlay">
@@ -1033,12 +1035,12 @@ function resetGame(){
   document.getElementById('mapname').textContent=MAPS[selectedMap].name+(killY!=null?' · RING-OUT':'');
   updateHP(); updateWeaponUI(); updateNadeUI(); updateLevelHUD(); startWave(1);
 }
-function gameOver(){ gameState='over'; firing=false; showLeaveBtn(false); document.exitPointerLock?.();
+function gameOver(){ gameState='over'; firing=false; showLeaveBtn(false); updateRotateHint(); document.exitPointerLock?.();
   $('#fKills').textContent=kills; $('#fWave').textContent=wave;
   $('#fXP').textContent='+'+xpGainedThisGame; $('#fLevel').textContent=profile.level; $('#fKeys').textContent='+'+keysEarnedThisGame;
   saveProfile(); $('#overScreen').classList.remove('hidden'); }
 function beginGame(){ $('#startScreen').classList.add('hidden'); $('#overScreen').classList.add('hidden'); $('#lobbyScreen').classList.add('hidden');
-  leaveMp(); gameMode='solo'; gameState='playing'; resetGame(); showLeaveBtn(true); goFullscreen(); if(!IS_TOUCH) renderer.domElement.requestPointerLock(); }
+  leaveMp(); gameMode='solo'; gameState='playing'; resetGame(); showLeaveBtn(true); goFullscreen(); updateRotateHint(); if(!IS_TOUCH) renderer.domElement.requestPointerLock(); }
 function openArmory(){ $('#overScreen').classList.add('hidden'); $('#startScreen').classList.remove('hidden'); gameState='menu'; updateProgUI(); }
 $('#startBtn').onclick=beginGame; $('#restartBtn').onclick=beginGame; $('#armoryBtn').onclick=openArmory;
 renderer.domElement.addEventListener('click',()=>{ if(gameState==='playing'&&!locked&&!IS_TOUCH) renderer.domElement.requestPointerLock(); });
@@ -1092,9 +1094,21 @@ if(IS_TOUCH){ $('#mobile').classList.add('on');
   btn('#bJump',()=>{keys['Space']=true;},()=>{keys['Space']=false;});
   btn('#bMelee',melee); btn('#bNade',throwGrenade); btn('#bReload',reload);
   btn('#bSwap',()=>cycleWeapon(1)); btn('#bChat',()=>openMpChat());
-  $('#rotateHint').classList.add('touch');     // show portrait hint on phones
   $('#mpChatInput').addEventListener('blur',()=>{ if(chatOpen) closeMpChat(false); }); // dismiss keyboard closes chat
 }
+
+// rotate-to-landscape hint: JS-controlled (reliably hides on rotate) + tap-to-dismiss so it never traps you
+let rotateDismissed=false;
+const portraitMQ = matchMedia('(orientation: portrait)');
+function updateRotateHint(){
+  const show = COARSE && gameState==='playing' && portraitMQ.matches && !rotateDismissed;
+  const el=$('#rotateHint'); if(el) el.classList.toggle('show', show);
+}
+$('#rotateHint').addEventListener('click',()=>{ rotateDismissed=true; updateRotateHint(); });
+if(portraitMQ.addEventListener) portraitMQ.addEventListener('change',updateRotateHint);
+else if(portraitMQ.addListener) portraitMQ.addListener(updateRotateHint);
+addEventListener('orientationchange',()=>setTimeout(updateRotateHint,250));
+addEventListener('resize',updateRotateHint);
 function goFullscreen(){ if(COARSE){ try{ (document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen||(()=>{})).call(document.documentElement); }catch(e){} } }
 
 // ---------- Loop ----------
@@ -1216,7 +1230,7 @@ function startArena(){ $('#lobbyScreen').classList.add('hidden'); $('#overScreen
   document.getElementById('mapname').textContent=MAPS[selectedMap].name+' · MULTIPLAYER';
   for(const id in remotes){ const g=remotes[id].group; if(g.parent!==scene) scene.add(g); if(!shootTargets.includes(g)) shootTargets.push(g); }
   mpScores[NET.id]=mpScores[NET.id]||0; $('#scoreboard').classList.add('on'); renderScoreboard(); showLeaveBtn(true);
-  $('#bChat').style.display='flex'; goFullscreen();
+  $('#bChat').style.display='flex'; goFullscreen(); updateRotateHint();
   if(!IS_TOUCH) renderer.domElement.requestPointerLock(); }
 function leaveMp(){ gameMode='solo'; chatOpen=false; $('#mpChatInput').classList.remove('on'); $('#bChat').style.display='none';
   Object.keys(remotes).forEach(removeRemote); $('#scoreboard').classList.remove('on'); $('#mpChat').innerHTML=''; }
@@ -1225,7 +1239,8 @@ function showLeaveBtn(on){ $('#leaveBtn').classList.toggle('on',on); }
 function doLeave(){ document.exitPointerLock?.(); showLeaveBtn(false); $('#victory').classList.remove('on'); firing=false;
   if(gameMode==='mp'){ NET.send({t:'forfeit'}); leaveMp(); gameState='menu';
     $('#lobbyScreen').classList.remove('hidden'); $('#startScreen').classList.add('hidden'); $('#overScreen').classList.add('hidden'); }
-  else { gameState='menu'; $('#startScreen').classList.remove('hidden'); $('#overScreen').classList.add('hidden'); } }
+  else { gameState='menu'; $('#startScreen').classList.remove('hidden'); $('#overScreen').classList.add('hidden'); }
+  updateRotateHint(); }
 function onForfeit(id){ const name=mpNames[id]||'A player'; removeRemote(id);
   pushMpChat(null,'🏳 '+name+' forfeited the match');
   if(gameMode==='mp' && gameState==='playing' && Object.keys(remotes).length===0) showVictory(name+' forfeited — last one standing!'); }
