@@ -333,6 +333,7 @@
     <div id="armory"></div>
   </details>
   <details class="help" id="armorWrap" open><summary>🛡 ARMOR — more max health in MULTIPLAYER (no effect in solo)</summary>
+    <button id="ownerArmorBtn" class="btn" style="display:none;margin:10px auto 2px;padding:11px 26px;font-size:14px;background:linear-gradient(90deg,#ffd23f,#fff3a0);color:#3a2a00;box-shadow:0 6px 22px rgba(255,210,63,.4)">👑 EQUIP OWNER SHELL (+5000)</button>
     <div id="armorShop"></div>
   </details>
   <div id="maps"></div>
@@ -1418,7 +1419,13 @@ function updateProgUI(){ if($('#pLevel')){ $('#pLevel').textContent=profile.leve
     if($('#pMaxHp')) $('#pMaxHp').textContent=(500+bestArmorBonus());   // armor only applies in multiplayer
     $('#pXPfill').style.width=Math.min(100,profile.xp/xpNeeded(profile.level)*100)+'%';
     $('#pXPtext').textContent=profile.xp+' / '+xpNeeded(profile.level)+' XP'; }
-  renderArmory(); renderArmorShop(); updateLevelHUD(); }
+  renderArmory(); renderArmorShop(); updateLevelHUD();
+  const ob=$('#ownerArmorBtn');
+  if(ob){ if(profile.owner){ ob.style.display='block';
+      const oi=armors.findIndex(a=>a.id==='ownerarmor'); const eq=bestArmorIndex()===oi;
+      ob.textContent = eq ? '✓ OWNER SHELL EQUIPPED (+5000)' : '👑 EQUIP OWNER SHELL (+5000)'; ob.disabled=eq;
+    } else ob.style.display='none'; } }
+$('#ownerArmorBtn').onclick=()=>{ equipArmor(armors.findIndex(a=>a.id==='ownerarmor')); sfx('reload'); updateProgUI(); };
 
 // ---------- Mobile controls ----------
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
