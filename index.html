@@ -595,7 +595,7 @@ const weapons=[
  {id:'crossbow',name:'CROSSBOW',cost:8,blurb:'Silent one-shot bolt',type:'hitscan',dmg:140,rpm:55,auto:false,mag:4,reload:1.9,spread:0,pellets:1,range:300,recoil:.05,color:0x9b6dff,knock:7},
  {id:'plasma',name:'PLASMA RIFLE',cost:10,blurb:'Rapid energy bolts',type:'hitscan',dmg:34,rpm:540,auto:true,mag:40,reload:2.0,spread:0.01,pellets:1,range:160,recoil:.014,color:0x00ffd5,knock:3},
  {id:'minigun',name:'MINIGUN',cost:11,blurb:'Bullet hose · huge mag',type:'hitscan',dmg:16,rpm:1150,auto:true,mag:150,reload:3.4,spread:0.045,pellets:1,range:110,recoil:.006,color:0xff7eb6,knock:1},
- {id:'railgun',name:'RAILGUN',cost:13,blurb:'Instant one-shot beam',type:'hitscan',dmg:185,rpm:38,auto:false,mag:4,reload:2.7,spread:0,pellets:1,range:420,recoil:.07,color:0x00e5ff,knock:14},
+ {id:'railgun',name:'RAILGUN',cost:55,blurb:'THE most powerful — instant beam, one-shots anything through any armor',type:'hitscan',dmg:400,rpm:36,auto:false,mag:4,reload:2.8,spread:0,pellets:1,range:450,recoil:.08,color:0x00e5ff,knock:25},
  {id:'bfg',name:'PLASMA CANNON',cost:18,blurb:'Devastating splash — the ultimate',type:'rocket',dmg:170,rpm:40,auto:false,mag:2,reload:3.2,range:200,recoil:.09,color:0x39ff14,speed:42,radius:10,splash:130,knock:30},
  {id:'gatling',name:'GATLING LASER',cost:20,blurb:'Insane fire rate, melts everything',type:'hitscan',dmg:28,rpm:1300,auto:true,mag:200,reload:3.6,spread:0.03,pellets:1,range:140,recoil:.006,color:0xff4d6d,knock:2},
  {id:'arc',name:'ARC RIFLE',cost:23,blurb:'Heavy full-auto energy slugs',type:'hitscan',dmg:48,rpm:680,auto:true,mag:50,reload:2.3,spread:0.008,pellets:1,range:190,recoil:.013,color:0x66e0ff,knock:5},
@@ -1299,7 +1299,7 @@ const NET={
       case 'state': onRemoteState(o); break;
       case 'chat': addChat(o.name,o.text); pushMpChat(o.name,o.text); break;
       case 'shot': if(o.from&&o.to) tracer(new THREE.Vector3(o.from[0],o.from[1],o.from[2]),new THREE.Vector3(o.to[0],o.to[1],o.to[2]),o.color||0xffffff); break;
-      case 'hit': if(o.target===this.id){ if((o.dmg||0)<=700) takeMpDamage(o.dmg||10,o.id); else onCheat(o.id); } break;
+      case 'hit': if(o.target===this.id){ if((o.dmg||0)<=1300) takeMpDamage(o.dmg||10,o.id); else onCheat(o.id); } break;
       case 'death': onMpDeath(o.id,o.by); break;
       case 'forfeit': onForfeit(o.id); break;
       case 'cheat': onCheat(o.id); break;
