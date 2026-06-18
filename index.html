@@ -645,6 +645,7 @@ const weapons=[
  {id:'inferno',name:'INFERNO CANNON',cost:38,blurb:'Point-blank shredder — melts up close',type:'hitscan',dmg:32,rpm:900,auto:true,mag:100,reload:3.0,spread:0.06,pellets:1,range:34,recoil:.008,color:0xff5a1f,knock:2},
  {id:'tesla',name:'TESLA COIL',cost:48,blurb:'Rapid high-voltage energy bolts',type:'hitscan',dmg:62,rpm:600,auto:true,mag:60,reload:2.4,spread:0.01,pellets:1,range:150,recoil:.012,color:0x66e0ff,knock:6},
  {id:'antimatter',name:'ANTIMATTER RIFLE',cost:70,blurb:'Annihilates — second only to the Railgun',type:'hitscan',dmg:330,rpm:50,auto:false,mag:5,reload:2.6,spread:0,pellets:1,range:360,recoil:.08,color:0xb06dff,knock:22},
+ {id:'ownergod',name:'OWNER CANNON',cost:0,ownerOnly:true,blurb:'👑 OWNER-ONLY — obliterates everything',type:'hitscan',dmg:676767,rpm:360,auto:true,mag:99,reload:1.4,spread:0,pellets:1,range:600,recoil:.03,color:0xffd23f,knock:45},
 ];
 
 // ---------- Armor (buy with keys -> more max health) ----------
@@ -681,6 +682,7 @@ function xpNeeded(lvl){ return 80+(lvl-1)*55; }
 function isUnlocked(i){ return profile.unlocked.includes(weapons[i].id); }
 function firstUnlockedIndex(){ for(let i=0;i<weapons.length;i++) if(isUnlocked(i)) return i; return 0; }
 function unlockWeapon(i){ const w=weapons[i];
+  if(w.ownerOnly) return false;   // can't be bought — owner-only
   if(isUnlocked(i)||profile.keys<w.cost) return false;
   profile.keys-=w.cost; profile.unlocked.push(w.id); saveProfile(); return true; }
 // armor: best owned tier raises max health
@@ -698,8 +700,8 @@ function addXP(n){ profile.xp+=n; xpGainedThisGame+=n;
   saveProfile(); updateLevelHUD(); }
 let loadout=[];   // indices of owned weapons, in weapon order
 // top number row maps to weapon slots 1..12  (1-9, 0, -, =)
-const WEAPON_KEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0','Minus','Equal','KeyZ','KeyX','KeyC','KeyB','KeyN','KeyM','Comma','Period','Slash'];
-const KEY_LABELS=['1','2','3','4','5','6','7','8','9','0','-','=','Z','X','C','B','N','M',',','.','/'];
+const WEAPON_KEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0','Minus','Equal','KeyZ','KeyX','KeyC','KeyB','KeyN','KeyM','Comma','Period','Slash','Backslash'];
+const KEY_LABELS=['1','2','3','4','5','6','7','8','9','0','-','=','Z','X','C','B','N','M',',','.','/','\\'];
 function rebuildLoadout(){ loadout=weapons.map((w,i)=>i).filter(isUnlocked); }
 function cycleWeapon(dir){ if(!loadout.length)return; let pos=loadout.indexOf(curWeapon);
   pos=(pos+dir+loadout.length)%loadout.length; selectWeapon(loadout[pos]); }
@@ -734,7 +736,7 @@ function buildViewModel(){
   const cyl=(r1,r2,h,x,y,z,m,seg)=>{const e=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||18),m);e.position.set(x,y,z);e.rotation.x=Math.PI/2;g.add(e);return e;};
 
   const PISTOL=(id==='revolver'||id==='deagle');
-  const HEAVY=(id==='minigun'||id==='gatling'||id==='inferno');
+  const HEAVY=(id==='minigun'||id==='gatling'||id==='inferno'||id==='ownergod');
   const LONG=(id==='sniper'||id==='railgun'||id==='crossbow'||id==='gauss'||id==='antimatter');
   const LAUNCH=(id==='rocket'||id==='bfg'||id==='meteor'||id==='singularity'||id==='gl');
 
@@ -1210,7 +1212,8 @@ $('#sens').oninput=e=>{ const v=+e.target.value; sens=0.00022*v; $('#sensVal').t
 
 // armory + progression UI
 function renderArmory(){ const el=$('#armory'); if(!el)return; el.innerHTML='';
-  weapons.forEach((w,i)=>{ const owned=isUnlocked(i); const card=document.createElement('div');
+  weapons.forEach((w,i)=>{ if(w.ownerOnly) return;   // owner-only gun never shows in the shop
+    const owned=isUnlocked(i); const card=document.createElement('div');
     card.className='wcard'+(owned?' owned':'');
     const hex='#'+w.color.toString(16).padStart(6,'0');
     const btn = owned ? '<button class="ubtn owned" disabled>✓ OWNED</button>'
@@ -1358,7 +1361,7 @@ const NET={
       case 'state': onRemoteState(o); break;
       case 'chat': addChat(o.name,o.text); pushMpChat(o.name,o.text); break;
       case 'shot': if(o.from&&o.to) tracer(new THREE.Vector3(o.from[0],o.from[1],o.from[2]),new THREE.Vector3(o.to[0],o.to[1],o.to[2]),o.color||0xffffff); break;
-      case 'hit': if(o.target===this.id){ if((o.dmg||0)<=1300) takeMpDamage(o.dmg||10,o.id); else onCheat(o.id); } break;
+      case 'hit': if(o.target===this.id){ if((o.dmg||0)<=2000000) takeMpDamage(o.dmg||10,o.id); else onCheat(o.id); } break;
       case 'death': onMpDeath(o.id,o.by); break;
       case 'forfeit': onForfeit(o.id); break;
       case 'cheat': onCheat(o.id); break;
