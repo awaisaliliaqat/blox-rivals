@@ -792,8 +792,11 @@ function unlockWeapon(i){ const w=weapons[i];
   profile.keys-=w.cost; profile.unlocked.push(w.id); saveProfile(); return true; }
 // armor: best owned tier raises max health
 function isArmorOwned(i){ return (profile.armors||[]).includes(armors[i].id); }
-function bestArmorBonus(){ let b=0; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>b) b=a.bonus; }); return b; }
-function bestArmorIndex(){ let bi=-1,bb=-1; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>bb){bb=a.bonus;bi=i;} }); return bi; }
+function bestArmorIndex(){   // explicitly equipped armor if owned, else the best owned
+  if(profile.equippedArmor){ const i=armors.findIndex(a=>a.id===profile.equippedArmor); if(i>=0 && isArmorOwned(i)) return i; }
+  let bi=-1,bb=-1; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>bb){bb=a.bonus;bi=i;} }); return bi; }
+function bestArmorBonus(){ const i=bestArmorIndex(); return i>=0?armors[i].bonus:0; }
+function equipArmor(i){ if(!isArmorOwned(i))return false; profile.equippedArmor=armors[i].id; saveProfile(); return true; }
 function playerMaxHp(){ return ((gameMode==='mp') ? 500 : 50) + bestArmorBonus(); }  // base 50 solo / 500 mp, plus armor (armor works in both)
 function unlockArmor(i){ const a=armors[i];
   if(isArmorOwned(i)||profile.keys<a.cost) return false;
@@ -1359,12 +1362,14 @@ function renderArmorShop(){ const el=$('#armorShop'); if(!el)return; el.innerHTM
     card.className='wcard'+(owned?' owned':'');
     const hex='#'+a.color.toString(16).padStart(6,'0');
     const btn = (i===best) ? '<button class="ubtn owned" disabled>✓ EQUIPPED</button>'
-      : owned ? '<button class="ubtn owned" disabled>OWNED</button>'
+      : owned ? '<button class="ubtn buy">EQUIP</button>'
       : profile.keys>=a.cost ? '<button class="ubtn buy">BUY · '+a.cost+' 🔑</button>'
       : '<button class="ubtn no" disabled>🔒 '+a.cost+' 🔑</button>';
     card.innerHTML='<div class="wc-bar" style="background:'+hex+'"></div><div class="wc-name">'+a.name+'</div>'
       +'<div class="wc-blurb">'+a.blurb+'</div>'+btn;
-    if(!owned && profile.keys>=a.cost){ card.querySelector('.ubtn').onclick=()=>{ if(unlockArmor(i)){ sfx('level'); updateProgUI(); } }; }
+    const ub=card.querySelector('.ubtn');
+    if(owned && i!==best){ ub.onclick=()=>{ equipArmor(i); sfx('reload'); updateProgUI(); }; }       // equip an owned armor
+    else if(!owned && profile.keys>=a.cost){ ub.onclick=()=>{ if(unlockArmor(i)){ sfx('level'); updateProgUI(); } }; }
     el.appendChild(card); }); }
 function updateProgUI(){ if($('#pLevel')){ $('#pLevel').textContent=profile.level; $('#pKeys').textContent=profile.keys;
     if($('#pMaxHp')) $('#pMaxHp').textContent=playerMaxHp();
@@ -1601,7 +1606,7 @@ if(DEBUG) window.RIVALS={ get state(){return gameState;}, get enemies(){return e
   setMap(i){selectedMap=i;}, begin:beginGame, spawn:makeEnemy, fire:tryFire, selectWeapon,
   melee, throwGrenade, explode, get grenades(){return grenades;}, get map(){return currentMap;},
   get profile(){return profile;}, addXP, unlockWeapon, isUnlocked, get curWeapon(){return curWeapon;},
-  armors, unlockArmor, isArmorOwned, playerMaxHp, bestArmorBonus,
+  armors, unlockArmor, isArmorOwned, playerMaxHp, bestArmorBonus, equipArmor, bestArmorIndex,
   get medkits(){return medkits;}, get net(){return NET;}, get remotes(){return remotes;},
   setView, get thirdPerson(){return thirdPerson;}, get playerBody(){return playerBody;}, get camera(){return camera;},
   get gameMode(){return gameMode;}, get scores(){return mpScores;}, startArena, sendChat, mpRespawn, doLeave,
