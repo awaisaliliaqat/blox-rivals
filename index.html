@@ -193,6 +193,16 @@
     background:linear-gradient(90deg,#ffd23f,#fff,#00e5ff);-webkit-background-clip:text;background-clip:text;color:transparent;
     text-shadow:0 0 60px rgba(255,210,63,.5);}
   #victory .vsub{font-size:18px;letter-spacing:3px;opacity:.8;margin-top:6px;}
+  /* sign up / log in */
+  #authScreen{z-index:40;}
+  #authBox{margin-top:18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:22px 24px;width:340px;max-width:92vw;}
+  #authTabs{display:flex;gap:8px;margin-bottom:14px;}
+  .atab{flex:1;pointer-events:auto;cursor:pointer;padding:9px;border:2px solid rgba(255,255,255,.18);border-radius:9px;
+    background:rgba(10,16,26,.5);color:#fff;font-weight:bold;letter-spacing:1px;font-size:13px;}
+  .atab.aon{border-color:var(--accent);background:rgba(0,229,255,.12);color:var(--accent);}
+  #authMsg{min-height:18px;font-size:13px;color:var(--accent2);margin:2px 0 10px;letter-spacing:.4px;}
+  #userBar{font-size:13px;opacity:.85;margin-top:8px;letter-spacing:1px;}
+  #userBar a{color:var(--accent2);cursor:pointer;pointer-events:auto;text-decoration:underline;}
   /* multiplayer lobby + chat */
   .field{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:8px 0;width:320px;max-width:90vw;text-align:left;}
   .field label{font-size:11px;letter-spacing:2px;opacity:.7;text-transform:uppercase;}
@@ -282,10 +292,29 @@
 
 <div id="rotateHint"><div>🔄</div><div>Rotate your device to <b>landscape</b> for the best experience</div><div class="dismiss">Tap to play anyway ▶</div></div>
 
+<!-- sign up / log in (gate) -->
+<div id="authScreen" class="overlay">
+  <div class="title">BLOX RIVALS</div>
+  <div class="subtitle">Create an account to play</div>
+  <div id="authBox">
+    <div id="authTabs">
+      <button class="atab aon" data-m="signup">SIGN UP</button>
+      <button class="atab" data-m="login">LOG IN</button>
+    </div>
+    <div class="field"><label>Username</label><input id="auUser" maxlength="16" autocomplete="off" placeholder="yourname"></div>
+    <div class="field"><label>Password</label><input id="auPass" type="password" maxlength="32" placeholder="password"></div>
+    <div class="field" id="auConfirmWrap"><label>Confirm password</label><input id="auPass2" type="password" maxlength="32" placeholder="repeat password"></div>
+    <div id="authMsg"></div>
+    <button class="btn" id="authBtn" style="width:100%;margin-top:4px;padding:13px">► CREATE ACCOUNT</button>
+  </div>
+  <div class="hint">Your account is saved on this device — no email needed.</div>
+</div>
+
 <!-- start -->
 <div id="startScreen" class="overlay">
   <div class="title">BLOX RIVALS</div>
   <div class="subtitle">Arena FPS · Ring-Out</div>
+  <div id="userBar"><span id="userTag"></span> · <a id="logoutBtn">log out</a></div>
   <div id="prog">
     <div class="progrow"><span>LEVEL <b id="pLevel">1</b></span><span>❤ <b id="pMaxHp">100</b> HP</span><span><b id="pKeys">0</b> 🔑 KEYS</span></div>
     <div id="pXPbar"><div id="pXPfill"></div></div>
@@ -1546,6 +1575,43 @@ if(DEBUG) window.RIVALS={ get state(){return gameState;}, get enemies(){return e
     return {state:gameState,enemies:enemies.length,toSpawn,kills,hp:Math.round(player.hp),py:+player.pos.y.toFixed(2),proj:projectiles.length}; } };
 
 if(isBanned()) $('#bannedScreen').classList.remove('hidden');
+// ---------- Sign up / Log in (device-local accounts; gates the menu) ----------
+const ACC_KEY='bloxRivalsAccounts', USER_KEY='bloxRivalsUser';
+let currentUser=null, authMode='signup';
+function getAccounts(){ try{ return JSON.parse(localStorage.getItem(ACC_KEY))||{}; }catch(e){ return {}; } }
+function saveAccounts(a){ try{ localStorage.setItem(ACC_KEY, JSON.stringify(a)); }catch(e){} }
+function hashPass(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return h.toString(36); }
+function setAuthMode(m){ authMode=m; document.querySelectorAll('.atab').forEach(t=>t.classList.toggle('aon',t.dataset.m===m));
+  $('#auConfirmWrap').style.display = m==='signup'?'flex':'none';
+  $('#authBtn').textContent = m==='signup'?'► CREATE ACCOUNT':'► LOG IN'; $('#authMsg').textContent=''; }
+function loginUser(name){ try{ localStorage.setItem(USER_KEY,name); }catch(e){} currentUser=name;
+  $('#authScreen').classList.add('hidden'); $('#userTag').textContent='👤 '+name;
+  if($('#playerName')&&!$('#playerName').value) $('#playerName').value=name.slice(0,14); }
+function logout(){ try{ localStorage.removeItem(USER_KEY); }catch(e){} currentUser=null;
+  $('#auPass').value=''; $('#auPass2').value=''; setAuthMode(Object.keys(getAccounts()).length?'login':'signup'); $('#authScreen').classList.remove('hidden'); }
+function doAuth(){
+  const u=$('#auUser').value.trim(), p=$('#auPass').value, msg=$('#authMsg'), accs=getAccounts();
+  if(u.length<3){ msg.textContent='Username must be at least 3 characters'; return; }
+  if(p.length<4){ msg.textContent='Password must be at least 4 characters'; return; }
+  if(authMode==='signup'){
+    if(p!==$('#auPass2').value){ msg.textContent='Passwords do not match'; return; }
+    if(accs[u.toLowerCase()]){ msg.textContent='That username is taken — log in instead'; return; }
+    accs[u.toLowerCase()]={ name:u, p:hashPass(p) }; saveAccounts(accs); sfx('level'); loginUser(u);
+  } else {
+    const a=accs[u.toLowerCase()];
+    if(!a || a.p!==hashPass(p)){ msg.textContent='Wrong username or password'; return; }
+    loginUser(a.name||u);
+  }
+}
+document.querySelectorAll('.atab').forEach(t=> t.onclick=()=>setAuthMode(t.dataset.m));
+$('#authBtn').onclick=doAuth; $('#logoutBtn').onclick=logout;
+['auUser','auPass','auPass2'].forEach(id=>{ const el=$('#'+id); if(el) el.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter') doAuth(); }); });
+(function initAuth(){ let saved=null; try{ saved=localStorage.getItem(USER_KEY); }catch(e){}
+  const accs=getAccounts();
+  if(saved && accs[saved.toLowerCase()]){ loginUser(accs[saved.toLowerCase()].name||saved); }
+  else { setAuthMode(Object.keys(accs).length?'login':'signup'); $('#authScreen').classList.remove('hidden'); }
+})();
+
 rebuildLoadout(); buildViewModel(); updateWeaponUI(); updateNadeUI(); updateHP(); updateProgUI(); animate();
 </script>
 </body>
