@@ -596,10 +596,11 @@ let grenades=3, grenadeMax=3, lastGrenade=-10, lastMelee=-10, meleeAnim=0;
 // ---------- Progression (persistent via localStorage) ----------
 const SAVE_KEY='bloxRivalsProfile_v1';
 let profile=loadProfile();
-// OWNER unlock: open the site with ?unlock=CODE once to grant every gun on THIS device (persists).
+// OWNER unlock: open the site once with ?unlock=CODE to flag this device as owner.
+// After that, EVERY gun stays unlocked automatically on every load — including guns added later.
 const OWNER_CODE='aariz-owner-7731';
-try{ if(new URLSearchParams(location.search).get('unlock')===OWNER_CODE){
-  profile.unlocked = weapons.map(w=>w.id); saveProfile(); } }catch(e){}
+try{ if(new URLSearchParams(location.search).get('unlock')===OWNER_CODE) profile.owner=true; }catch(e){}
+if(profile.owner){ profile.unlocked = weapons.map(w=>w.id); saveProfile(); }
 let xpGainedThisGame=0, keysEarnedThisGame=0;
 function loadProfile(){
   try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY));
