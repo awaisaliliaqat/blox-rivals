@@ -245,12 +245,15 @@
   <div class="title">BLOX RIVALS</div>
   <div class="subtitle">Arena FPS · Ring-Out</div>
   <div id="prog">
-    <div class="progrow"><span>LEVEL <b id="pLevel">1</b></span><span><b id="pKeys">0</b> 🔑 KEYS</span></div>
+    <div class="progrow"><span>LEVEL <b id="pLevel">1</b></span><span>❤ <b id="pMaxHp">100</b> HP</span><span><b id="pKeys">0</b> 🔑 KEYS</span></div>
     <div id="pXPbar"><div id="pXPfill"></div></div>
     <div id="pXPtext">0 / 80 XP</div>
   </div>
   <details class="help" id="armoryWrap" open><summary>🔫 ARMORY — spend keys to permanently unlock weapons</summary>
     <div id="armory"></div>
+  </details>
+  <details class="help" id="armorWrap"><summary>🛡 ARMOR — spend keys for more max health</summary>
+    <div id="armorShop"></div>
   </details>
   <div id="maps"></div>
   <div class="settings">
@@ -600,6 +603,14 @@ const weapons=[
  {id:'meteor',name:'METEOR LAUNCHER',cost:32,blurb:'Falling fire — colossal splash',type:'rocket',dmg:205,rpm:42,auto:false,mag:2,reload:3.3,range:220,recoil:.09,color:0xff7b00,speed:46,radius:12,splash:155,knock:36},
  {id:'singularity',name:'SINGULARITY CANNON',cost:42,blurb:'A black hole in your hands — ultimate ring-out',type:'rocket',dmg:300,rpm:34,auto:false,mag:1,reload:3.9,range:200,recoil:.1,color:0xb06dff,speed:40,radius:16,splash:220,knock:52},
 ];
+
+// ---------- Armor (buy with keys -> more max health) ----------
+const armors=[
+ {id:'light', name:'LIGHT VEST',   cost:3,  bonus:25,  blurb:'+25 max health',  color:0x6dff8c},
+ {id:'combat',name:'COMBAT ARMOR', cost:6,  bonus:50,  blurb:'+50 max health',  color:0x4dd2ff},
+ {id:'heavy', name:'HEAVY PLATE',  cost:10, bonus:80,  blurb:'+80 max health',  color:0xffd23f},
+ {id:'jugg',  name:'JUGGERNAUT',   cost:16, bonus:130, blurb:'+130 max health', color:0xff2e63},
+];
 let curWeapon=0; const ammo=weapons.map(w=>w.mag);
 let reloading=false, reloadEnd=0, lastShot=0, recoilV=0;
 let grenades=3, grenadeMax=3, lastGrenade=-10, lastMelee=-10, meleeAnim=0;
@@ -611,13 +622,13 @@ let profile=loadProfile();
 // After that, EVERY gun stays unlocked automatically on every load — including guns added later.
 const OWNER_CODE='aariz-owner-7731';
 try{ if(new URLSearchParams(location.search).get('unlock')===OWNER_CODE) profile.owner=true; }catch(e){}
-if(profile.owner){ profile.unlocked = weapons.map(w=>w.id); saveProfile(); }
+if(profile.owner){ profile.unlocked = weapons.map(w=>w.id); profile.armors = armors.map(a=>a.id); saveProfile(); }
 let xpGainedThisGame=0, keysEarnedThisGame=0;
 function loadProfile(){
   try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY));
-    if(s&&Array.isArray(s.unlocked)){ s.level=s.level||1; s.xp=s.xp||0; s.keys=s.keys||0;
+    if(s&&Array.isArray(s.unlocked)){ s.level=s.level||1; s.xp=s.xp||0; s.keys=s.keys||0; s.armors=s.armors||[];
       if(!s.unlocked.includes('smg')) s.unlocked.push('smg'); return s; } }catch(e){}
-  return { level:1, xp:0, keys:0, unlocked:['smg'] };
+  return { level:1, xp:0, keys:0, unlocked:['smg'], armors:[] };
 }
 function saveProfile(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); }catch(e){} }
 function xpNeeded(lvl){ return 80+(lvl-1)*55; }
@@ -626,6 +637,14 @@ function firstUnlockedIndex(){ for(let i=0;i<weapons.length;i++) if(isUnlocked(i
 function unlockWeapon(i){ const w=weapons[i];
   if(isUnlocked(i)||profile.keys<w.cost) return false;
   profile.keys-=w.cost; profile.unlocked.push(w.id); saveProfile(); return true; }
+// armor: best owned tier raises max health
+function isArmorOwned(i){ return (profile.armors||[]).includes(armors[i].id); }
+function bestArmorBonus(){ let b=0; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>b) b=a.bonus; }); return b; }
+function bestArmorIndex(){ let bi=-1,bb=-1; armors.forEach((a,i)=>{ if(isArmorOwned(i)&&a.bonus>bb){bb=a.bonus;bi=i;} }); return bi; }
+function playerMaxHp(){ return 100 + bestArmorBonus(); }
+function unlockArmor(i){ const a=armors[i];
+  if(isArmorOwned(i)||profile.keys<a.cost) return false;
+  profile.keys-=a.cost; (profile.armors=profile.armors||[]).push(a.id); saveProfile(); return true; }
 function addXP(n){ profile.xp+=n; xpGainedThisGame+=n;
   while(profile.xp>=xpNeeded(profile.level)){ profile.xp-=xpNeeded(profile.level); profile.level++;
     const k=1+(profile.level%5===0?2:0); profile.keys+=k; keysEarnedThisGame+=k;
@@ -1102,7 +1121,7 @@ function resetGame(){
   buildMap(MAPS[selectedMap]);
   const sp=MAPS[selectedMap].spawn;
   player.pos.set(sp[0],sp[1],sp[2]); player.vel.set(0,0,0); player.knock.set(0,0,0);
-  player.yaw=sp[3]||0; player.pitch=0; player.hp=100; player.alive=true; player.lastHit=0; player.standingOn=null;
+  player.yaw=sp[3]||0; player.pitch=0; player.maxhp=playerMaxHp(); player.hp=player.maxhp; player.alive=true; player.lastHit=0; player.standingOn=null;
   kills=0; score=0; grenades=grenadeMax; lastGrenade=-10;
   xpGainedThisGame=0; keysEarnedThisGame=0;
   ammo.forEach((_,i)=>ammo[i]=weapons[i].mag); rebuildLoadout(); curWeapon=loadout[0]||0; reloading=false; buildViewModel();
@@ -1142,10 +1161,24 @@ function renderArmory(){ const el=$('#armory'); if(!el)return; el.innerHTML='';
       +'<div class="wc-blurb">'+w.blurb+'</div>'+btn;
     if(!owned && profile.keys>=w.cost){ card.querySelector('.ubtn').onclick=()=>{ if(unlockWeapon(i)){ sfx('level'); updateProgUI(); } }; }
     el.appendChild(card); }); }
+function renderArmorShop(){ const el=$('#armorShop'); if(!el)return; el.innerHTML='';
+  const best=bestArmorIndex();
+  armors.forEach((a,i)=>{ const owned=isArmorOwned(i); const card=document.createElement('div');
+    card.className='wcard'+(owned?' owned':'');
+    const hex='#'+a.color.toString(16).padStart(6,'0');
+    const btn = (i===best) ? '<button class="ubtn owned" disabled>✓ EQUIPPED</button>'
+      : owned ? '<button class="ubtn owned" disabled>OWNED</button>'
+      : profile.keys>=a.cost ? '<button class="ubtn buy">BUY · '+a.cost+' 🔑</button>'
+      : '<button class="ubtn no" disabled>🔒 '+a.cost+' 🔑</button>';
+    card.innerHTML='<div class="wc-bar" style="background:'+hex+'"></div><div class="wc-name">'+a.name+'</div>'
+      +'<div class="wc-blurb">'+a.blurb+'</div>'+btn;
+    if(!owned && profile.keys>=a.cost){ card.querySelector('.ubtn').onclick=()=>{ if(unlockArmor(i)){ sfx('level'); updateProgUI(); } }; }
+    el.appendChild(card); }); }
 function updateProgUI(){ if($('#pLevel')){ $('#pLevel').textContent=profile.level; $('#pKeys').textContent=profile.keys;
+    if($('#pMaxHp')) $('#pMaxHp').textContent=playerMaxHp();
     $('#pXPfill').style.width=Math.min(100,profile.xp/xpNeeded(profile.level)*100)+'%';
     $('#pXPtext').textContent=profile.xp+' / '+xpNeeded(profile.level)+' XP'; }
-  renderArmory(); updateLevelHUD(); }
+  renderArmory(); renderArmorShop(); updateLevelHUD(); }
 
 // ---------- Mobile controls ----------
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
@@ -1364,10 +1397,11 @@ if(DEBUG) window.RIVALS={ get state(){return gameState;}, get enemies(){return e
   setMap(i){selectedMap=i;}, begin:beginGame, spawn:makeEnemy, fire:tryFire, selectWeapon,
   melee, throwGrenade, explode, get grenades(){return grenades;}, get map(){return currentMap;},
   get profile(){return profile;}, addXP, unlockWeapon, isUnlocked, get curWeapon(){return curWeapon;},
+  armors, unlockArmor, isArmorOwned, playerMaxHp, bestArmorBonus,
   get medkits(){return medkits;}, get net(){return NET;}, get remotes(){return remotes;},
   get gameMode(){return gameMode;}, get scores(){return mpScores;}, startArena, sendChat, mpRespawn, doLeave,
   get renderer(){return renderer;}, get composer(){return composer;},
-  resetProfile(){ profile={level:1,xp:0,keys:0,unlocked:['smg']}; saveProfile(); updateProgUI(); },
+  resetProfile(){ profile={level:1,xp:0,keys:0,unlocked:['smg'],armors:[]}; saveProfile(); updateProgUI(); },
   step(dt){ let d; if(dt!=null){d=Math.min(0.05,dt);clock.elapsedTime+=d;} else d=Math.min(0.05,clock.getDelta());
     frame(d); renderFrame();
     return {state:gameState,enemies:enemies.length,toSpawn,kills,hp:Math.round(player.hp),py:+player.pos.y.toFixed(2),proj:projectiles.length}; } };
